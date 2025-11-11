@@ -9,6 +9,7 @@
  * @copyright Copyright (c) 2023
  *
  */
+
 #ifndef __CANARY_H__
 #define __CANARY_H__
 

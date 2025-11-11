@@ -43,7 +43,60 @@ bool AABB::intersect(const Ray &ray, Float *t_in, Float *t_out) const {
   //    for getting the inverse direction of the ray.
   // @see Min/Max/ReduceMin/ReduceMax
   //    for vector min/max operations.
-  UNIMPLEMENTED;
+  using InternalScalarType = Double;
+  using InternalVecType    = Vec<InternalScalarType, 3>;
+
+  InternalVecType invDir = Cast<InternalScalarType>(ray.safe_inverse_direction);
+  InternalScalarType txmin, txmax, tymin, tymax, tzmin, tzmax, tmin, tmax;
+
+  if (invDir.x >= 0)
+  {
+    txmin = (low_bnd.x - ray.origin.x) * invDir.x;
+    txmax = (upper_bnd.x - ray.origin.x) * invDir.x;
+  }
+  else {
+    txmax = (low_bnd.x - ray.origin.x) * invDir.x;
+    txmin = (upper_bnd.x - ray.origin.x) * invDir.x;
+  }
+  if (invDir.y >= 0)
+  {
+    tymin = (low_bnd.y - ray.origin.y) * invDir.y;
+    tymax = (upper_bnd.y - ray.origin.y) * invDir.y;
+  }
+  else
+  {
+    tymax = (low_bnd.y - ray.origin.y) * invDir.y;
+    tymin = (upper_bnd.y - ray.origin.y) * invDir.y;
+  }
+  if (invDir.z >= 0)
+  {
+    tzmin = (low_bnd.z - ray.origin.z) * invDir.z;
+    tzmax = (upper_bnd.z - ray.origin.z) * invDir.z;
+  }
+  else 
+  {
+    tzmax = (low_bnd.z - ray.origin.z) * invDir.z;
+    tzmin = (upper_bnd.z - ray.origin.z) * invDir.z;
+  }
+  if (txmax < tymin || txmin > tymax) 
+  {
+    return false;
+  }
+  tmax = Min(txmax, tymax);
+  tmin = Max(txmin, tymin);
+  if (tmax < tzmin || tmin > tzmax) 
+  {
+    return false;
+  }
+  tmax = Min(tmax, tzmax);
+  tmin = Max(tmin, tzmin);
+  if (tmax < Double(ray.t_min) || tmin > Double(ray.t_max)) 
+  {
+    return false;
+  }
+  *t_out = Min(Float(tmax), ray.t_max);
+  *t_in = Max(Float(tmin), ray.t_min);
+  return true;
 }
 
 /* ===================================================================== *
@@ -90,13 +143,39 @@ bool TriangleIntersect(Ray &ray, const uint32_t &triangle_index,
   //
   // Useful Functions:
   // You can use @see Cross and @see Dot for determinant calculations.
-
-  // Delete the following lines after you implement the function
   InternalScalarType u = InternalScalarType(0);
   InternalScalarType v = InternalScalarType(0);
-  InternalScalarType t = InternalScalarType(0);
-  UNIMPLEMENTED;
+  
+  InternalVecType vec1 = v1 - v0;
+  InternalVecType vec2 = v2 - v0;
+  InternalVecType planeDir = Cross(vec1, vec2);
+  if (Dot(planeDir, planeDir) == 0) {
+    return false;
+  }
+  InternalVecType norm = Normalize(planeDir);
+  InternalScalarType area2 = Dot(planeDir, norm);
+  InternalScalarType distance = Dot(norm, v0);
+  InternalScalarType dotProduct = Dot(norm, dir);
+  if (dotProduct == 0) {
+    return false;
+  }
+  InternalVecType origin = Cast<InternalScalarType>(ray.origin);
+  InternalScalarType t = (distance - Dot(origin, norm))/(dotProduct);
+  
+  if (t < ray.t_min || t > ray.t_max)
+  {
+    return false;
+  }
 
+  InternalVecType  intersectPoint = origin + t * dir;
+  
+
+  u = Dot(Cross(v0 - v2, intersectPoint - v2), norm)/ area2;
+  v = Dot(Cross(v1 - v0, intersectPoint - v0), norm)/ area2;
+
+  if (u < 0 || v < 0 || (u + v) > 1) {
+    return false;
+  }
   // We will reach here if there is an intersection
 
   CalculateTriangleDifferentials(interaction,

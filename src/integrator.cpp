@@ -1,7 +1,13 @@
 #include "rdr/integrator.h"
 
+#include <cmath>
+#include <iterator>
+#include <math.h>
 #include <omp.h>
+#include <ostream>
+#include <iostream>
 
+#include "linalg.h"
 #include "rdr/bsdf.h"
 #include "rdr/camera.h"
 #include "rdr/canary.h"
@@ -56,13 +62,14 @@ void IntersectionTestIntegrator::render(ref<Camera> camera, ref<Scene> scene) {
 
         // After you assign pixel_sample and ray, you can uncomment the
         // following lines to accumulate the radiance to the film.
-        //
-        //
+        const Vec2f &pixel_sample  = sampler.getPixelSample();
+        auto ray = camera->generateDifferentialRay(pixel_sample.x,pixel_sample.y);
+
         // Accumulate radiance
-        // assert(pixel_sample.x >= dx && pixel_sample.x <= dx + 1);
-        // assert(pixel_sample.y >= dy && pixel_sample.y <= dy + 1);
-        // const Vec3f &L = Li(scene, ray, sampler);
-        // camera->getFilm()->commitSample(pixel_sample, L);
+        assert(pixel_sample.x >= dx && pixel_sample.x <= dx + 1);
+        assert(pixel_sample.y >= dy && pixel_sample.y <= dy + 1);
+        const Vec3f &L = Li(scene, ray, sampler);
+        camera->getFilm()->commitSample(pixel_sample, L);
       }
     }
   }
@@ -104,7 +111,8 @@ Vec3f IntersectionTestIntegrator::Li(
       // @see SurfaceInteraction::spawnRay
       //
       // You should update ray = ... with the spawned ray
-      UNIMPLEMENTED;
+      interaction.bsdf->sample(interaction, sampler, nullptr);
+      ray = interaction.spawnRay(interaction.wi);
       continue;
     }
 
@@ -128,10 +136,12 @@ Vec3f IntersectionTestIntegrator::Li(
 
 Vec3f IntersectionTestIntegrator::directLighting(
     ref<Scene> scene, SurfaceInteraction &interaction) const {
+  // std::cout << point_light_position << std::endl;
   Vec3f color(0, 0, 0);
   Float dist_to_light = Norm(point_light_position - interaction.p);
   Vec3f light_dir     = Normalize(point_light_position - interaction.p);
   auto test_ray       = DifferentialRay(interaction.p, light_dir);
+  interaction.wi = light_dir;
 
   // TODO(HW3): Test for occlusion
   //
@@ -148,8 +158,18 @@ Vec3f IntersectionTestIntegrator::directLighting(
   //
   //    You can use iteraction.p to get the intersection position.
   //
-  UNIMPLEMENTED;
-
+  SurfaceInteraction newSurface;
+  bool intersected = scene->intersect(test_ray, newSurface);
+  Vec3f interactPoint = newSurface.p;
+  if (linalg::distance(interactPoint, test_ray.origin) < linalg::distance(point_light_position, test_ray.origin) - 1e-4 && intersected)
+  {
+    return Vec3f(0,0,0);
+  }
+  // SurfaceInteraction shadow_interaction;
+  // test_ray.t_max = dist_to_light * (1.0f - 1e-4f); 
+  // if (scene->intersect(test_ray, shadow_interaction)) {
+  //     return color;
+  // }
   // Not occluded, compute the contribution using perfect diffuse diffuse model
   // Perform a quick and dirty check to determine whether the BSDF is ideal
   // diffuse by RTTI
@@ -165,12 +185,17 @@ Vec3f IntersectionTestIntegrator::directLighting(
     // used to determine the value of color.
 
     // The angle between light direction and surface normal
-    Float cos_theta =
-        std::max(Dot(light_dir, interaction.normal), 0.0f);  // one-sided
+    Float cos_theta = std::max(Dot(light_dir, interaction.normal), 0.0f);
 
-    // You should assign the value to color
-    // color = ...
-    UNIMPLEMENTED;
+    // if (dist_to_light < 1) {
+    //   dist_to_light = 1;
+    // }
+    Vec3f albedo = bsdf->evaluate(interaction) * cos_theta;
+    Vec3f radiance = point_light_flux / (4 * PI * dist_to_light * dist_to_light);
+    // std::cout<< radiance[0]<< " ," << radiance[1]<< " ," << radiance[2]<< std::endl;
+    color =  radiance * albedo;
+    // color = bsdf->evaluate(interaction) * cos_theta;
+
   }
 
   return color;

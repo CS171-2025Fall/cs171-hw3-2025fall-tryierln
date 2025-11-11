@@ -8,6 +8,7 @@
 #include "nlohmann/json.hpp"
 #include "rdr/interaction.h"
 #include "rdr/render.h"
+#include "rdr/bvh_tree.h"
 
 using namespace RDR_NAMESPACE_NAME;
 

@@ -9,6 +9,7 @@
 #include "rdr/platform.h"
 #include "rdr/primitive.h"
 #include "rdr/ray.h"
+#include <algorithm>
 
 RDR_NAMESPACE_BEGIN
 
@@ -143,7 +144,8 @@ typename BVHTree<_>::IndexType BVHTree<_>::build(
   // @see span_left: The left index of the current span
   // @see span_right: The right index of the current span
   //
-  /* if ( */ UNIMPLEMENTED; /* ) */
+  
+  if (depth >= CUTOFF_DEPTH || span_right - span_left == 1)
   {
     // create leaf node
     const auto &node = nodes[span_left];
@@ -161,7 +163,7 @@ typename BVHTree<_>::IndexType BVHTree<_>::build(
   // not need to be aware of the tree structure.
   InternalNode result(span_left, span_right);
 
-  // const int &dim = depth % 3;
+  // const int &dim = depth % 3; 
   const int &dim  = ArgMax(prebuilt_aabb.getExtent());
   IndexType count = span_right - span_left;
   IndexType split = INVALID_INDEX;
@@ -181,7 +183,8 @@ use_median_heuristic:
     //
     // You may find `std::nth_element` useful here.
 
-    UNIMPLEMENTED;
+    std::nth_element(nodes.begin() + span_left, nodes.begin() + split, nodes.begin() + span_right, [dim](const auto x, const auto y){ return x.getAABB().getCenter()[dim] < y.getAABB().getCenter()[dim];});
+    
 
     // clang-format on
   } else if (hprofile == EHeuristicProfile::ESurfaceAreaHeuristic) {

@@ -36,7 +36,7 @@ struct Ray {
 
   /// min and max distance of the ray
   WrapperType<const Float> t_min{internal.t_min};
-  WrapperType<const Float> t_max{internal.t_max};
+  WrapperType<Float> t_max{internal.t_max};
 
   /// Used by AABB intersection
   WrapperType<const Vec3f> safe_inverse_direction{
