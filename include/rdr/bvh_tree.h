@@ -5,11 +5,14 @@
 #ifndef __BVH_TREE_H__
 #define __BVH_TREE_H__
 
+#include "math_aliases.h"
 #include "rdr/accel.h"
 #include "rdr/platform.h"
 #include "rdr/primitive.h"
 #include "rdr/ray.h"
 #include <algorithm>
+#include <cstdint>
+#include <map>
 
 RDR_NAMESPACE_BEGIN
 
@@ -61,6 +64,16 @@ public:
     AABB aabb{};                          // The bounding box of the node
   };
 
+  struct ParallelInternalNode {
+    ParallelInternalNode() = default;
+    ParallelInternalNode(IndexType left_index, IndexType right_index)
+        : left_index(left_index), right_index(right_index) {}
+
+    bool is_leaf{false};
+    IndexType left_index{INVALID_INDEX};//internal node index - leaf node index +
+    IndexType right_index{INVALID_INDEX};
+    AABB aabb{};                          // The bounding box of the node
+  };
   BVHTree()  = default;
   ~BVHTree() = default;
 
@@ -76,6 +89,7 @@ public:
 
   /// *Can* be executed not only once
   void build();
+  void build_parallel();
 
   template <typename Callback>
   bool intersect(Ray &ray, Callback callback) const {
@@ -92,14 +106,28 @@ private:
   vector<NodeType> nodes{};               /// The data nodes
   vector<InternalNode> internal_nodes{};  /// The internal nodes
 
+  vector<IndexType> parallel_split_indices{};
+  vector<IndexType> parallel_internal_indices{};
+  vector<ParallelInternalNode> parallel_internal_nodes{};
+
+  std::map<NodeType, uint32_t> morton_code_map{};
   /// Internal build
   IndexType build(
       int depth, const IndexType &span_left, const IndexType &span_right);
+  
+  // IndexType build_parallel(
+      // const IndexType &span_left, const IndexType &span_right);
+  
+  void build_radix_tree();
 
   /// Internal intersect
   template <typename Callback>
   bool intersect(
       Ray &ray, const IndexType &node_index, Callback callback) const;
+  
+  void computeMortonCodes();
+
+  int delta(int x, int y) const;
 };
 
 /* ===================================================================== *
@@ -214,6 +242,130 @@ use_surface_area_heuristic:
 
   internal_nodes.push_back(result);
   return internal_nodes.size() - 1;
+}
+
+template <typename _>
+void BVHTree<_>::build_parallel() {
+  if (is_built) return;
+  computeMortonCodes();
+  std::sort(nodes.begin(), nodes.end(), [&](const auto &a, const auto &b) {
+    return morton_code_map[a] < morton_code_map[b];
+  });
+  // pre-allocate memory
+  parallel_internal_nodes.reserve(nodes.size() - 1);
+  build_radix_tree();
+
+  internal_nodes.reserve(2 * nodes.size() - 1);
+
+  // root_index = build_parallel(0, 0, nodes.size());
+  is_built   = true;
+}
+
+// template <typename _>
+// typename BVHTree<_>::IndexType BVHTree<_>::build_parallel(
+//    const IndexType &span_left, const IndexType &span_right) {
+
+// }
+  
+template <typename _>
+void BVHTree<_>::build_radix_tree(){
+  #pragma omp parallel for
+  for (int i = 0; i < nodes.size() - 1; i++) {
+    int d = Sign(
+        delta(i, i + 1) - delta(i, i - 1));
+    if (d == 0) d = 1;
+    int delta_min = delta(i, i - d);
+    int l_max = 2;
+    while (delta(i, i + l_max * d) > delta_min) {
+      l_max *= 2;
+    }
+    int l = 0;
+    for (int t = l_max / 2; t >= 1; t /= 2) {
+      if (delta(i, i + (l + t) * d) > delta_min) {
+        l += t;
+      }
+    }
+    int j = i + l * d;
+    int delta_node = delta(i, j);
+    int s = 0;
+    for (int t = l / 2; t >= 1; t /= 2) {
+      if (delta(i, i + (s + t) * d) > delta_node) {
+        s += t;
+      }
+    }
+    int split = i + s * d + std::min(d, 0);
+    int left, right;
+    if (Min(i, j) == split) {
+      left = split;
+    }
+    else {
+      left = -split;
+    }
+    if (Max(i, j) == split + 1) {
+      right = split + 1;
+    }
+    else {
+      right = - (split + 1);
+    }
+    ParallelInternalNode pinode(left, right);
+    parallel_internal_nodes.push_back(pinode);
+  }
+}
+template <typename _>
+void BVHTree<_>::computeMortonCodes() {
+  Float xmax, ymax, zmax;
+  Float xmin, ymin, zmin;
+  for (int i = 0; i < nodes.size(); i++) 
+  {
+    const auto &aabb = nodes[i].getAABB();
+    const auto centroid = aabb.getCenter();
+    if (i == 0) 
+    {
+      xmin = xmax = centroid.x;
+      ymin = ymax = centroid.y;
+      zmin = zmax = centroid.z;
+    } 
+    else 
+    {
+      xmin = std::min(xmin, centroid.x);
+      xmax = std::max(xmax, centroid.x);
+      ymin = std::min(ymin, centroid.y);
+      ymax = std::max(ymax, centroid.y);
+      zmin = std::min(zmin, centroid.z);
+      zmax = std::max(zmax, centroid.z);
+    }
+  }
+  #pragma omp parallel for
+  for (int i = 0; i < nodes.size(); i++) 
+  {
+    const auto &aabb = nodes[i].getAABB();
+    const auto centroid = aabb.getCenter();
+    // Map to [0, 1023]
+    int x = static_cast<int>(
+        1023 * (centroid.x - xmin) / (xmax - xmin));
+    int y = static_cast<int>(
+        1023 * (centroid.y - ymin) / (ymax - ymin));
+    int z = static_cast<int>(
+        1023 * (centroid.z - zmin) / (zmax - zmin));
+    
+    // Interleave bits
+    int morton_code = 0;
+    for (int j = 0; j < 10; j++) {
+      morton_code |= ((x >> j) & 1) << (3 * j + 2);
+      morton_code |= ((y >> j) & 1) << (3 * j + 1);
+      morton_code |= ((z >> j) & 1) << (3 * j);
+    }
+    morton_code_map[nodes[i]] = morton_code;
+  }
+}
+
+template <typename _>
+int BVHTree<_>::delta(int x, int y) const {
+  if (y > nodes.size() - 1 || y < 0) {
+    return -1;
+  }
+  if (morton_code_map[nodes[x]] == morton_code_map[nodes[y]]) return 32;
+  return __builtin_clz(morton_code_map[nodes[x]] ^ morton_code_map[nodes[y]]);
 }
 
 template <typename _>

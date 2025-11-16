@@ -4,6 +4,7 @@
  * this file.
  */
 #include <fstream>
+#include <iostream>
 
 #include "nlohmann/json.hpp"
 #include "rdr/interaction.h"
@@ -125,7 +126,8 @@ int rdr_main(int argc, char *argv[]) {  // NOLINT: alias of main function
     output_path = source_path.filename().stem().string() + ".exr";
   Info_("Root Properties initialized with [ JSON ]. Start building scene...");
   ref<RenderInterface> render = make_ref<NativeRender>(root_properties);
-
+  // std::cout<< "RDR171 version 0.1, Copyright (c) ShanghaiTech CS171 TAs\n"
+  //           "Please DO NOT EVER release the source code containing your implementations\n"<< std::endl;
   render->initialize();
   render->preprocess();
 
@@ -138,7 +140,6 @@ int rdr_main(int argc, char *argv[]) {  // NOLINT: alias of main function
 
   render->render();
   render->exportImageToDisk(output_path.value());
-
   auto end = std::chrono::steady_clock::now();
   auto time =
       std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
@@ -148,6 +149,8 @@ int rdr_main(int argc, char *argv[]) {  // NOLINT: alias of main function
 }
 
 int main(int argc, char *argv[]) {
+  // std::cout<<  "RDR171 version 0.1, Copyright (c) ShanghaiTech CS171 TAs\n"
+  //           "Please DO NOT EVER release the source code containing your implementations\n"<< std::endl;
   int ret_val = 0;
 
   try {

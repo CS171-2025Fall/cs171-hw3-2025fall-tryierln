@@ -1,4 +1,6 @@
 #include "rdr/render.h"
+#include <iostream>
+#include <typeinfo>
 
 #include "rdr/all_integrators.h"
 #include "rdr/film.h"
@@ -14,6 +16,7 @@ void NativeRender::initialize() {
   // Initialization is break into steps
   // Pass 1: create all objects with property and fill the
   // CrossConfigurationContext
+  // std::cout << "Initializing renderer components..." << std::endl;
   cross_context.root_properties = props;
   cross_context.film =
       RDR_CREATE_CLASS(Film, props.getProperty<Properties>("film"));
@@ -22,7 +25,6 @@ void NativeRender::initialize() {
   cross_context.scene = RDR_CREATE_CLASS(Scene, props);
   cross_context.integrator =
       RDR_CREATE_CLASS(Integrator, props.getProperty<Properties>("integrator"));
-
   // Initialize the optional filter
   cross_context.filter = RDR_CREATE_CLASS(ReconstructionFilter,
       props.getProperty<Properties>("film").getProperty<Properties>(
@@ -48,6 +50,7 @@ void NativeRender::initialize() {
       cross_context.primitives.push_back(
           RDR_CREATE_CLASS(Primitive, primitive_properties));
   }
+
 
   if (props.hasProperty("environment_map")) {
     cross_context.environment_map = RDR_CREATE_CLASS(
@@ -77,6 +80,7 @@ void NativeRender::clearRuntimeInfo() {
 }
 
 void NativeRender::preprocess() {
+  // std::cout << "Preprocessing scene..." << std::endl;
   preprocess_context.scene = cross_context.scene;
   for (ConfigurableObject *cobject : global_context)
     cobject->preprocess(preprocess_context);
@@ -90,6 +94,7 @@ void NativeRender::preprocess() {
 
 void NativeRender::render() {
   // render scene
+  // std::cout << typeid(cross_context.integrator).name() << std::endl;
   cross_context.integrator->render(cross_context.camera, cross_context.scene);
 }
 

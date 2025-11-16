@@ -5,6 +5,7 @@
 #include "rdr/scene.h"
 #include "rdr/shape.h"
 #include "rdr/texture.h"
+#include <iostream>
 
 RDR_NAMESPACE_BEGIN
 

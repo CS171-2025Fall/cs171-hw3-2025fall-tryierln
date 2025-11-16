@@ -13,8 +13,10 @@
 #define __INTEGRATOR_H__
 
 #include "rdr/interaction.h"
+#include "rdr/math_aliases.h"
 #include "rdr/math_utils.h"
 #include "rdr/path.h"
+#include "rdr/light.h"
 
 RDR_NAMESPACE_BEGIN
 
@@ -70,6 +72,38 @@ protected:
 
   int max_depth, spp;
 };
+
+/// @brief A simple & dirty integrator that only performs direct illumination
+/// estimation using relative simple methods.
+/// In this integrator, the light source is hardcoded as a Area light. And
+/// we only accept diffuse surfaces for simplicity.
+class AreaLightTestIntegrator : public Integrator {
+  public:
+    AreaLightTestIntegrator(const Properties &props) : Integrator(props) {
+      max_depth = props.getProperty<int>("max_depth", 16);
+      spp       = props.getProperty<int>("spp", 8);
+    }
+  
+    void render(ref<Camera> camera, ref<Scene> scene) override;
+  
+    /// @see Integrator::Li
+    Vec3f Li(  // NOLINT
+        ref<Scene> scene, DifferentialRay &ray, Sampler &sampler) const;
+  
+    std::string toString() const override {
+      std::ostringstream ss;
+      ss << "AreaLightTestIntegrator[\n"
+         << format("  max_depth           = {}\n", max_depth)
+         << format("  spp                 = {}\n", spp) << "]";
+      return ss.str();
+    }
+  
+    /// @brief Compute direct lighting at the interaction point
+    Vec3f directLighting(ref<Scene> scene, SurfaceInteraction &interaction) const;
+  
+  protected:
+    int max_depth, spp;
+  };
 
 /// Retained for debugging
 class PathIntegrator : public Integrator {

@@ -223,7 +223,7 @@ RDR_REGISTER_CLASS(AreaLight)
 RDR_REGISTER_CLASS(InfiniteAreaLight)
 
 RDR_REGISTER_FACTORY(Light, [](const Properties &props) -> Light * {
-  auto type = props.getProperty<std::string>("area");
+  auto type = props.getProperty<std::string>("type", "area");
   if (type == "area") {
     return Memory::alloc<AreaLight>(props);
   } else {

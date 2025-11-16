@@ -192,6 +192,7 @@ Vec3f IntersectionTestIntegrator::directLighting(
     // }
     Vec3f albedo = bsdf->evaluate(interaction) * cos_theta;
     Vec3f radiance = point_light_flux / (4 * PI * dist_to_light * dist_to_light);
+    // Vec3f radiance = point_light_flux *(dist_to_light * dist_to_light)/(4*PI);
     // std::cout<< radiance[0]<< " ," << radiance[1]<< " ," << radiance[2]<< std::endl;
     color =  radiance * albedo;
     // color = bsdf->evaluate(interaction) * cos_theta;
@@ -199,6 +200,151 @@ Vec3f IntersectionTestIntegrator::directLighting(
   }
 
   return color;
+}
+
+
+void AreaLightTestIntegrator::render(ref<Camera> camera, ref<Scene> scene) {
+  // Statistics
+  std::atomic<int> cnt = 0;
+
+  const Vec2i &resolution = camera->getFilm()->getResolution();
+#pragma omp parallel for schedule(dynamic)
+  for (int dx = 0; dx < resolution.x; dx++) {
+    ++cnt;
+    if (cnt % (resolution.x / 10) == 0)
+      Info_("Rendering: {:.02f}%", cnt * 100.0 / resolution.x);
+    Sampler sampler;
+    for (int dy = 0; dy < resolution.y; dy++) {
+      sampler.setPixelIndex2D(Vec2i(dx, dy));
+      for (int sample = 0; sample < spp; sample++) {
+        // TODO(HW3): generate #spp rays for each pixel and use Monte Carlo
+        // integration to compute radiance.
+        //
+        // Useful Functions:
+        //
+        // @see Sampler::getPixelSample for getting the current pixel sample
+        // as Vec2f.
+        //
+        // @see Camera::generateDifferentialRay for generating rays given
+        // pixel sample positions as 2 floats.
+
+        // You should assign the following two variables
+        // const Vec2f &pixel_sample = ...
+        // auto ray = ...
+
+        // After you assign pixel_sample and ray, you can uncomment the
+        // following lines to accumulate the radiance to the film.
+        const Vec2f &pixel_sample  = sampler.getPixelSample();
+        auto ray = camera->generateDifferentialRay(pixel_sample.x,pixel_sample.y);
+
+        // Accumulate radiance
+        assert(pixel_sample.x >= dx && pixel_sample.x <= dx + 1);
+        assert(pixel_sample.y >= dy && pixel_sample.y <= dy + 1);
+        const Vec3f &L = Li(scene, ray, sampler);
+        camera->getFilm()->commitSample(pixel_sample, L);
+      }
+    }
+  }
+}
+
+Vec3f AreaLightTestIntegrator::Li(
+    ref<Scene> scene, DifferentialRay &ray, Sampler &sampler) const {
+  Vec3f color(0.0);
+
+  // Cast a ray until we hit a non-specular surface or miss
+  // Record whether we have found a diffuse surface
+  bool diffuse_found = false;
+  SurfaceInteraction interaction;
+
+  for (int i = 0; i < max_depth; ++i) {
+    interaction      = SurfaceInteraction();
+    bool intersected = scene->intersect(ray, interaction);
+
+    // Perform RTTI to determine the type of the surface
+    bool is_ideal_diffuse =
+        dynamic_cast<const IdealDiffusion *>(interaction.bsdf) != nullptr;
+    bool is_perfect_refraction =
+        dynamic_cast<const PerfectRefraction *>(interaction.bsdf) != nullptr;
+
+    // Set the outgoing direction
+    interaction.wo = -ray.direction;
+
+    if (!intersected) {
+      break;
+    }
+
+    if (is_perfect_refraction) {
+      // We should follow the specular direction
+      // TODO(HW3): call the interaction.bsdf->sample to get the new direction
+      // and update the ray accordingly.
+      //
+      // Useful Functions:
+      // @see BSDF::sample
+      // @see SurfaceInteraction::spawnRay
+      //
+      // You should update ray = ... with the spawned ray
+      interaction.bsdf->sample(interaction, sampler, nullptr);
+      ray = interaction.spawnRay(interaction.wi);
+      continue;
+    }
+
+    if (is_ideal_diffuse) {
+      // We only consider diffuse surfaces for direct lighting
+      diffuse_found = true;
+      break;
+    }
+
+    // We simply omit any other types of surfaces
+    break;
+  }
+
+  if (!diffuse_found) {
+    return color;
+  }
+
+  color = directLighting(scene, interaction);
+  return color;
+}
+
+Vec3f AreaLightTestIntegrator::directLighting(
+    ref<Scene> scene, SurfaceInteraction &interaction) const {
+  // std::cout << "percessing" << std::endl;
+  vector<Vec3f> colors;
+  Sampler sampler;
+  for (int i = 0; i < spp; i++) {
+    Vec3f color(0, 0, 0);
+    SurfaceInteraction light_interaction = scene->getLights()[0]->sample(interaction, sampler);
+    Vec3f light_dir = Normalize(light_interaction.p - interaction.p);
+    Float dist_to_light = Norm(light_interaction.p - interaction.p);
+    auto test_ray       = DifferentialRay(interaction.p, light_dir);
+
+    SurfaceInteraction newSurface;
+    bool intersected = scene->intersect(test_ray, newSurface);
+    Vec3f interactPoint = newSurface.p;
+    if (linalg::distance(interactPoint, test_ray.origin) < linalg::distance(light_interaction.p, test_ray.origin) - 1e-4 && intersected)
+    {
+      colors.push_back(color);
+      continue;
+    }
+
+    const BSDF *bsdf      = interaction.bsdf;
+    bool is_ideal_diffuse = dynamic_cast<const IdealDiffusion *>(bsdf) != nullptr;
+
+    if (bsdf != nullptr && is_ideal_diffuse) {
+
+      Float cos_theta = std::max(Dot(light_dir, interaction.normal), 0.0f);
+      
+      Vec3f albedo = bsdf->evaluate(interaction) * cos_theta;
+      Vec3f radiance = scene->getLights()[0]->Le(light_interaction, -light_dir) * Dot(-light_dir, light_interaction.normal) / (light_interaction.pdf * dist_to_light * dist_to_light);
+      color =  radiance * albedo;
+      colors.push_back(color);
+    }
+  }
+  Vec3f final_color(0,0,0);
+  for (auto color : colors) {
+    final_color += color;
+  }
+  return final_color / Float(spp);
 }
 
 /* ===================================================================== *
@@ -216,12 +362,14 @@ Vec3f PathIntegrator::Li(
     ref<Scene> scene, DifferentialRay &ray, Sampler &sampler) const {
   // This is left as the next assignment
   UNIMPLEMENTED;
+  return Vec3f(0.0);
 }
 
 Vec3f PathIntegrator::directLighting(
     ref<Scene> scene, SurfaceInteraction &interaction, Sampler &sampler) const {
   // This is left as the next assignment
   UNIMPLEMENTED;
+  return Vec3f(0.0);
 }
 
 /* ===================================================================== *
@@ -244,6 +392,7 @@ Vec3f IncrementalPathIntegrator::Li(  // NOLINT
     ref<Scene> scene, DifferentialRay &ray, Sampler &sampler) const {
   // This is left as the next assignment
   UNIMPLEMENTED;
+  return Vec3f(0.0);
 }
 
 RDR_NAMESPACE_END
