@@ -17,6 +17,7 @@
 #include "rdr/math_utils.h"
 #include "rdr/path.h"
 #include "rdr/light.h"
+#include "rdr/platform.h"
 
 RDR_NAMESPACE_BEGIN
 
@@ -35,10 +36,25 @@ public:
 class IntersectionTestIntegrator : public Integrator {
 public:
   IntersectionTestIntegrator(const Properties &props) : Integrator(props) {
-    point_light_position = props.getProperty<Vec3f>(
-        "point_light_position", Vec3f(0.0F, 5.0F, 0.0F));
-    point_light_flux =
-        props.getProperty<Vec3f>("point_light_flux", Vec3f(1.0F, 1.0F, 1.0F));
+    for (int i = 0;;i++)
+    {
+        std::string pos_name = format("point_light_position_{}", i);
+        std::string flux_name = format("point_light_flux_{}", i);
+        if (props.hasProperty(pos_name) && props.hasProperty(flux_name))
+        {
+            point_light_positions.push_back(props.getProperty<Vec3f>(pos_name));
+            point_light_fluxs.push_back(props.getProperty<Vec3f>(flux_name));
+        }
+        else
+        {
+            break;
+        }
+    }
+    if (props.hasProperty("point_light_position") && props.hasProperty("point_light_flux"))
+    {
+        point_light_positions.push_back(props.getProperty<Vec3f>("point_light_position"));
+        point_light_fluxs.push_back(props.getProperty<Vec3f>("point_light_flux"));
+    }
 
     max_depth = props.getProperty<int>("max_depth", 16);
     spp       = props.getProperty<int>("spp", 8);
@@ -53,10 +69,10 @@ public:
   std::string toString() const override {
     std::ostringstream ss;
     ss << "IntersectionTestIntegrator[\n"
-       << format("  point_light_position = {}\n", point_light_position)
-       << format("  point_light_flux     = {}\n", point_light_flux)
-       << format("  max_depth           = {}\n", max_depth)
-       << format("  spp                 = {}\n", spp) << "]";
+       << format("  first_point_light_position = {}\n", point_light_positions[0])
+       << format("  first_point_light_flux     = {}\n", point_light_fluxs[0])
+       << format("  max_depth                  = {}\n", max_depth)
+       << format("  spp                        = {}\n", spp) << "]";
     return ss.str();
   }
 
@@ -64,11 +80,11 @@ public:
   Vec3f directLighting(ref<Scene> scene, SurfaceInteraction &interaction) const;
 
 protected:
-  /// The position of the point light
-  Vec3f point_light_position;
+  /// The position list of the point light
+  vector<Vec3f> point_light_positions;
 
-  /// The radiance of the point light
-  Vec3f point_light_flux;
+  /// The radiance list of the point light
+  vector<Vec3f> point_light_fluxs;
 
   int max_depth, spp;
 };

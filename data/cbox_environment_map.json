@@ -1,0 +1,79 @@
+{
+    "integrator": {
+      "type": "area_light_test",
+      "max_depth": 16,
+      "spp": 32
+    },
+    "film": {
+      "resolution": [
+        512,
+        512
+      ]
+    },
+    "camera": {
+      "position": [
+        0.0,
+        1.0,
+        -6.8
+      ],
+      "look_at": [
+        0.0,
+        1.0,
+        6.8
+      ],
+      "ref_up": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "fov": 19.5,
+      "focal_length": 1.0
+    },
+    "textures": {
+      "env_map": {
+        "type": "image",
+        "path": "assets/environment_map.exr",
+        "tex_coordinate_generator": {
+          "type": "uvmapping2d",
+          "scale": [
+            1.0,
+            1.0
+          ],
+          "delta": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "white": {
+        "type": "constant",
+        "color": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    "materials": {
+      "diffuse": {
+        "type": "diffuse",
+        "texture_name": "white"
+      }
+    },
+    "environment_map": {
+      "texture_name": "env_map"
+    },
+    "objects": [
+      {
+        "type": "sphere",
+        "center": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "radius": 1.0,
+        "material_name": "diffuse"
+      }
+    ]
+  }
+  

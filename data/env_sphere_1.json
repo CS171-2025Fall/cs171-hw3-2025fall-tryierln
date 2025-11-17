@@ -32,9 +32,9 @@
     "focal_length": 1.0
   },
   "textures": {
-    "industrial_sunset_puresky": {
+    "env_map": {
       "type": "image",
-      "path": "assets/industrial_sunset_puresky_2k.exr",
+      "path": "assets/environment_map.hdr",
       "tex_coordinate_generator": {
         "type": "uvmapping2d",
         "scale": [
@@ -63,7 +63,7 @@
     }
   },
   "environment_map": {
-    "texture_name": "industrial_sunset_puresky"
+    "texture_name": "env_map"
   },
   "objects": [
     {

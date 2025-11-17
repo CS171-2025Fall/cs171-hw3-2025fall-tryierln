@@ -19,6 +19,7 @@
 #include "rdr/canary.h"
 #include "rdr/math_aliases.h"
 #include "rdr/platform.h"
+#include "windows.h"
 
 RDR_NAMESPACE_BEGIN
 
@@ -332,9 +333,21 @@ RDR_FORCEINLINE Vec3f CosineSampleHemisphere(const Vec2f &u) {
 }
 
 RDR_FORCEINLINE Vec3f UniformSampleSphere(const Vec2f &u) {
-  // This is left as the next assignment
-  UNIMPLEMENTED;
-  return Vec3f(0.0);
+  const float u1 = u.x;
+    const float u2 = u.y;
+
+    const float cos_theta = 1.0f - 2.0f * u1;
+
+    const float sin_theta = std::sqrt(std::max(0.0f, 1.0f - cos_theta * cos_theta));
+
+    const float phi = 2.0f * PI * u2;
+
+    Vec3f v;
+    v.x = sin_theta * std::cos(phi);
+    v.y = sin_theta * std::sin(phi);
+    v.z = cos_theta;
+
+    return v;
 }
 
 RDR_FORCEINLINE Vec3f UniformSampleTriangle(const Vec2f &u) {

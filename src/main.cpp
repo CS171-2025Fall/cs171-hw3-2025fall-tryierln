@@ -71,7 +71,7 @@ int rdr_main(int argc, char *argv[]) {  // NOLINT: alias of main function
   }
 
   // Init logger first anyway
-  InitLogger(true, quiet);
+  InitLogger(false, quiet);
 
   // Register factory classes
   Factory::doRegisterAllClasses();
@@ -129,8 +129,9 @@ int rdr_main(int argc, char *argv[]) {  // NOLINT: alias of main function
   // std::cout<< "RDR171 version 0.1, Copyright (c) ShanghaiTech CS171 TAs\n"
   //           "Please DO NOT EVER release the source code containing your implementations\n"<< std::endl;
   render->initialize();
+  std::cout<< "initialize done"<< std::endl;
   render->preprocess();
-
+  std::cout<< "preprocess done"<< std::endl;
   /*===---------------------------------------------------------------===*
    // Start rendering
    *===---------------------------------------------------------------===*/

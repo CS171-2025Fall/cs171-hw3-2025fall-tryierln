@@ -138,67 +138,70 @@ Vec3f IntersectionTestIntegrator::directLighting(
     ref<Scene> scene, SurfaceInteraction &interaction) const {
   // std::cout << point_light_position << std::endl;
   Vec3f color(0, 0, 0);
-  Float dist_to_light = Norm(point_light_position - interaction.p);
-  Vec3f light_dir     = Normalize(point_light_position - interaction.p);
-  auto test_ray       = DifferentialRay(interaction.p, light_dir);
-  interaction.wi = light_dir;
-
-  // TODO(HW3): Test for occlusion
-  //
-  // You should test if there is any intersection between interaction.p and
-  // point_light_position using scene->intersect. If so, return an occluded
-  // color. (or Vec3f color(0, 0, 0) to be specific)
-  //
-  // You may find the following variables useful:
-  //
-  // @see bool Scene::intersect(const Ray &ray, SurfaceInteraction &interaction)
-  //    This function tests whether the ray intersects with any geometry in the
-  //    scene. And if so, it returns true and fills the interaction with the
-  //    intersection information.
-  //
-  //    You can use iteraction.p to get the intersection position.
-  //
-  SurfaceInteraction newSurface;
-  bool intersected = scene->intersect(test_ray, newSurface);
-  Vec3f interactPoint = newSurface.p;
-  if (linalg::distance(interactPoint, test_ray.origin) < linalg::distance(point_light_position, test_ray.origin) - 1e-4 && intersected)
+  for (int i = 0; i < point_light_positions.size(); i++) 
   {
-    return Vec3f(0,0,0);
-  }
-  // SurfaceInteraction shadow_interaction;
-  // test_ray.t_max = dist_to_light * (1.0f - 1e-4f); 
-  // if (scene->intersect(test_ray, shadow_interaction)) {
-  //     return color;
-  // }
-  // Not occluded, compute the contribution using perfect diffuse diffuse model
-  // Perform a quick and dirty check to determine whether the BSDF is ideal
-  // diffuse by RTTI
-  const BSDF *bsdf      = interaction.bsdf;
-  bool is_ideal_diffuse = dynamic_cast<const IdealDiffusion *>(bsdf) != nullptr;
+    Vec3f point_light_position = point_light_positions[i];
+    Vec3f point_light_flux     = point_light_fluxs[i];
+    Float dist_to_light = Norm(point_light_position - interaction.p);
+    Vec3f light_dir     = Normalize(point_light_position - interaction.p);
+    auto test_ray       = DifferentialRay(interaction.p, light_dir);
+    interaction.wi = light_dir;
 
-  if (bsdf != nullptr && is_ideal_diffuse) {
-    // TODO(HW3): Compute the contribution
+    // TODO(HW3): Test for occlusion
     //
-    // You can use bsdf->evaluate(interaction) * cos_theta to approximate the
-    // albedo. In this homework, we do not need to consider a
-    // radiometry-accurate model, so a simple phong-shading-like model is can be
-    // used to determine the value of color.
-
-    // The angle between light direction and surface normal
-    Float cos_theta = std::max(Dot(light_dir, interaction.normal), 0.0f);
-
-    // if (dist_to_light < 1) {
-    //   dist_to_light = 1;
+    // You should test if there is any intersection between interaction.p and
+    // point_light_position using scene->intersect. If so, return an occluded
+    // color. (or Vec3f color(0, 0, 0) to be specific)
+    //
+    // You may find the following variables useful:
+    //
+    // @see bool Scene::intersect(const Ray &ray, SurfaceInteraction &interaction)
+    //    This function tests whether the ray intersects with any geometry in the
+    //    scene. And if so, it returns true and fills the interaction with the
+    //    intersection information.
+    //
+    //    You can use iteraction.p to get the intersection position.
+    //
+    SurfaceInteraction newSurface;
+    bool intersected = scene->intersect(test_ray, newSurface);
+    Vec3f interactPoint = newSurface.p;
+    if (linalg::distance(interactPoint, test_ray.origin) < linalg::distance(point_light_position, test_ray.origin) - 1e-4 && intersected)
+    {
+      continue;
+    }
+    // SurfaceInteraction shadow_interaction;
+    // test_ray.t_max = dist_to_light * (1.0f - 1e-4f); 
+    // if (scene->intersect(test_ray, shadow_interaction)) {
+    //     return color;
     // }
-    Vec3f albedo = bsdf->evaluate(interaction) * cos_theta;
-    Vec3f radiance = point_light_flux / (4 * PI * dist_to_light * dist_to_light);
-    // Vec3f radiance = point_light_flux *(dist_to_light * dist_to_light)/(4*PI);
-    // std::cout<< radiance[0]<< " ," << radiance[1]<< " ," << radiance[2]<< std::endl;
-    color =  radiance * albedo;
-    // color = bsdf->evaluate(interaction) * cos_theta;
+    // Not occluded, compute the contribution using perfect diffuse diffuse model
+    // Perform a quick and dirty check to determine whether the BSDF is ideal
+    // diffuse by RTTI
+    const BSDF *bsdf      = interaction.bsdf;
+    bool is_ideal_diffuse = dynamic_cast<const IdealDiffusion *>(bsdf) != nullptr;
 
+    if (bsdf != nullptr && is_ideal_diffuse) {
+      // TODO(HW3): Compute the contribution
+      //
+      // You can use bsdf->evaluate(interaction) * cos_theta to approximate the
+      // albedo. In this homework, we do not need to consider a
+      // radiometry-accurate model, so a simple phong-shading-like model is can be
+      // used to determine the value of color.
+
+      // The angle between light direction and surface normal
+      Float cos_theta = std::max(Dot(light_dir, interaction.normal), 0.0f);
+
+      // if (dist_to_light < 1) {
+      //   dist_to_light = 1;
+      // }
+      Vec3f albedo = bsdf->evaluate(interaction) * cos_theta;
+      Vec3f radiance = point_light_flux / (4 * PI * dist_to_light * dist_to_light);
+      // Vec3f radiance = point_light_flux *(dist_to_light * dist_to_light)/(4*PI);
+      // std::cout<< radiance[0]<< " ," << radiance[1]<< " ," << radiance[2]<< std::endl;
+      color +=  radiance * albedo;
+      // color = bsdf->evaluate(interaction) * cos_theta;
+    }
   }
-
   return color;
 }
 
@@ -311,40 +314,71 @@ Vec3f AreaLightTestIntegrator::directLighting(
   // std::cout << "percessing" << std::endl;
   vector<Vec3f> colors;
   Sampler sampler;
-  for (int i = 0; i < spp; i++) {
-    Vec3f color(0, 0, 0);
-    SurfaceInteraction light_interaction = scene->getLights()[0]->sample(interaction, sampler);
-    Vec3f light_dir = Normalize(light_interaction.p - interaction.p);
-    Float dist_to_light = Norm(light_interaction.p - interaction.p);
-    auto test_ray       = DifferentialRay(interaction.p, light_dir);
-
-    SurfaceInteraction newSurface;
-    bool intersected = scene->intersect(test_ray, newSurface);
-    Vec3f interactPoint = newSurface.p;
-    if (linalg::distance(interactPoint, test_ray.origin) < linalg::distance(light_interaction.p, test_ray.origin) - 1e-4 && intersected)
-    {
-      colors.push_back(color);
-      continue;
-    }
-
-    const BSDF *bsdf      = interaction.bsdf;
-    bool is_ideal_diffuse = dynamic_cast<const IdealDiffusion *>(bsdf) != nullptr;
-
-    if (bsdf != nullptr && is_ideal_diffuse) {
-
-      Float cos_theta = std::max(Dot(light_dir, interaction.normal), 0.0f);
-      
-      Vec3f albedo = bsdf->evaluate(interaction) * cos_theta;
-      Vec3f radiance = scene->getLights()[0]->Le(light_interaction, -light_dir) * Dot(-light_dir, light_interaction.normal) / (light_interaction.pdf * dist_to_light * dist_to_light);
-      color =  radiance * albedo;
-      colors.push_back(color);
-    }
-  }
   Vec3f final_color(0,0,0);
-  for (auto color : colors) {
-    final_color += color;
+  for (int j = 0; j < scene->getLights().size(); j++){
+    for (int i = 0; i < spp; i++) {
+      Vec3f color(0, 0, 0);
+      SurfaceInteraction light_interaction = scene->getLights()[j]->sample(interaction, sampler);
+      Vec3f light_dir = Normalize(light_interaction.p - interaction.p);
+      Float dist_to_light = Norm(light_interaction.p - interaction.p);
+      auto test_ray       = DifferentialRay(interaction.p, light_dir);
+
+      if (dynamic_cast<AreaLight *>(scene->getLights()[j].get()) != nullptr)
+      {
+        // std::cout << "area light" << std::endl;
+        SurfaceInteraction newSurface;
+        bool intersected = scene->intersect(test_ray, newSurface);
+        Vec3f interactPoint = newSurface.p;
+        if (linalg::distance(interactPoint, test_ray.origin) < linalg::distance(light_interaction.p, test_ray.origin) - 1e-4 && intersected)
+        {
+          colors.push_back(color);
+          continue;
+        }
+      }
+      else {
+        // std::cout << "infinite light" << std::endl;
+        SurfaceInteraction newSurface;
+        bool intersected = scene->intersect(test_ray, newSurface);
+        if (intersected)
+        {
+          colors.push_back(color);
+          continue;
+        }
+      }
+
+      const BSDF *bsdf      = interaction.bsdf;
+      bool is_ideal_diffuse = dynamic_cast<const IdealDiffusion *>(bsdf) != nullptr;
+
+      if (bsdf != nullptr && is_ideal_diffuse) {
+
+        Float cos_theta = std::max(Dot(light_dir, interaction.normal), 0.0f);
+        
+        Vec3f albedo = bsdf->evaluate(interaction) * cos_theta;
+        if (dynamic_cast<AreaLight *>(scene->getLights()[j].get()) != nullptr)
+        {
+          Float light_pdf = light_interaction.pdf;
+          Vec3f radiance = scene->getLights()[j]->Le(light_interaction, -light_dir) * Dot(-light_dir, light_interaction.normal) / (light_pdf * dist_to_light * dist_to_light);
+          color =  radiance * albedo;
+          colors.push_back(color);
+        }
+        else if (dynamic_cast<InfiniteAreaLight *>(scene->getLights()[j].get()) != nullptr)
+        {
+          // std::cout << "infinite light" << std::endl;
+          Float light_pdf = light_interaction.pdf;
+          Vec3f radiance = scene->getLights()[j]->Le(light_interaction, -light_dir) / light_pdf;
+          color =  radiance * albedo;
+          colors.push_back(color);
+        }
+        // Vec3f radiance = scene->getLights()[j]->Le(light_interaction, -light_dir) * Dot(-light_dir, light_interaction.normal) / (light_interaction.pdf * dist_to_light * dist_to_light);
+        // color =  radiance * albedo;
+        // colors.push_back(color);
+      }
+    }
+    for (auto color : colors) {
+      final_color += color;
+    }
   }
-  return final_color / Float(spp);
+  return final_color / Float(spp * scene->getLights().size());
 }
 
 /* ===================================================================== *

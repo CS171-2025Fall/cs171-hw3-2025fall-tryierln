@@ -29,28 +29,34 @@ void NativeRender::initialize() {
   cross_context.filter = RDR_CREATE_CLASS(ReconstructionFilter,
       props.getProperty<Properties>("film").getProperty<Properties>(
           "filter", Properties{}));  // else return an empty property
-
+  std::cout << "filter type: "
+            << typeid(*cross_context.filter).name() << std::endl;
   if (props.hasProperty("textures")) {
     auto texture_properties = props.getProperty<Properties>("textures");
     for (const auto &[name, _] : texture_properties)
+    {
+      std::cout << "texture name: " << name << std::endl;
       cross_context.textures[name] = RDR_CREATE_CLASS(
           Texture, texture_properties.getProperty<Properties>(name));
+    }
   }
-
+  std::cout << "texture size: " << cross_context.textures.size()
+            << std::endl;
   if (props.hasProperty("materials")) {
     auto material_properties = props.getProperty<Properties>("materials");
     for (const auto &[name, _] : material_properties)
       cross_context.materials[name] = RDR_CREATE_CLASS(
           BSDF, material_properties.getProperty<Properties>(name));
   }
-
+  std::cout << "material size: " << cross_context.materials.size()
+            << std::endl;
   if (props.hasProperty("objects")) {
     auto object_properties = props.getProperty<vector<Properties>>("objects");
     for (const auto &primitive_properties : object_properties)
       cross_context.primitives.push_back(
           RDR_CREATE_CLASS(Primitive, primitive_properties));
   }
-
+  std::cout << "primitive size: " << cross_context.primitives.size() << std::endl;
 
   if (props.hasProperty("environment_map")) {
     cross_context.environment_map = RDR_CREATE_CLASS(
