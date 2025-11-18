@@ -302,6 +302,11 @@ Vec3f AreaLightTestIntegrator::Li(
   }
 
   if (!diffuse_found) {
+    if (scene->hasInfiniteLight())
+    {
+      Vec3f Le = scene->getInfiniteLight()->Le(interaction, -ray.direction);
+      return Le;
+    }
     return color;
   }
 
@@ -357,7 +362,7 @@ Vec3f AreaLightTestIntegrator::directLighting(
         if (dynamic_cast<AreaLight *>(scene->getLights()[j].get()) != nullptr)
         {
           Float light_pdf = light_interaction.pdf;
-          Vec3f radiance = scene->getLights()[j]->Le(light_interaction, -light_dir) * Dot(-light_dir, light_interaction.normal) / (light_pdf * dist_to_light * dist_to_light);
+          Vec3f radiance = scene->getLights()[j]->Le(light_interaction, -light_dir) * Dot(-light_dir, light_interaction.normal)   / (light_pdf * dist_to_light * dist_to_light);
           color =  radiance * albedo;
           colors.push_back(color);
         }
@@ -365,7 +370,7 @@ Vec3f AreaLightTestIntegrator::directLighting(
         {
           // std::cout << "infinite light" << std::endl;
           Float light_pdf = light_interaction.pdf;
-          Vec3f radiance = scene->getLights()[j]->Le(light_interaction, -light_dir) / light_pdf;
+          Vec3f radiance = scene->getLights()[j]->Le(light_interaction, -light_dir) * Dot(-light_dir, light_interaction.normal) / light_pdf;
           color =  radiance * albedo;
           colors.push_back(color);
         }
